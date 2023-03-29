@@ -1,0 +1,10 @@
+﻿################################################################################
+# Ce fichier .gitignore a été automatiquement créé par Microsoft(R) Visual Studio.
+################################################################################
+
+/.vs/Coroutine
+/Coroutine/x64/Debug
+/packages/boost.1.81.0
+/x64/Debug
+/Coroutine/x64/Release
+/x64/Release
