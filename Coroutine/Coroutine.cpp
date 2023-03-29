@@ -61,7 +61,7 @@ boost::asio::awaitable<void> DoUnitTests(boost::asio::any_io_executor exec)
 
 		HttpClient https_client(exec, "https://www.google.com");
 		co_await https_client.connect();
-		auto e_res = co_await https_client.get<boost::beast::http::string_body>("/ping");
+		auto e_res = co_await https_client.get<boost::beast::http::string_body>("/");
 		std::cout << "Result: " << e_res << "\n";
 		UnitTest(e_res, Status::ok);
 		std::cout << "\n";
@@ -82,10 +82,10 @@ boost::asio::awaitable<void> DoUnitTests(boost::asio::any_io_executor exec)
 	{
 		std::cerr << e.what() << std::endl;
 	}
+    
+	std::cout << "\n\tResult: " << count << " tests => " << success << " SUCCESS " << count - success << " FAILED\n\n";
 
-    std::cout << "\n\tResult: " << count << " tests => " << success << " SUCCESS " << count - success << " FAILED\n\n";
-
-    co_return;
+	co_return;
 }
 
 int main()

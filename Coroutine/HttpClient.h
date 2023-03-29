@@ -39,6 +39,14 @@ public:
 	{
 	}
 
+	~HttpClient()
+	{
+		std::cout << "HttpClient disconnect and destroyed\n";
+
+		boost::system::error_code ec;
+		_ssl_stream.lowest_layer().shutdown(boost::asio::ip::tcp::socket::shutdown_send, ec);
+	}
+
 	template <typename T>
 	boost::asio::awaitable<boost::beast::http::response<T>> get(const std::string_view target, const Headers& headers = {}, const std::chrono::seconds& timeout = std::chrono::seconds(30))
 	{

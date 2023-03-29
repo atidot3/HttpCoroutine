@@ -69,7 +69,7 @@ public:
 				}
 				catch (const std::exception& e)
 				{
-					std::cerr << "HttpServer: DoAccept => Error in session " << e.what() << "\n";
+					std::cerr << "Error in session: " << e.what() << "\n";
 				}
 			});
 		}
@@ -77,8 +77,8 @@ public:
 
 	boost::asio::awaitable<void> OnAccept(boost::beast::tcp_stream stream)
 	{
-		std::cout << "New connection accepted from: " << stream.socket().remote_endpoint().address().to_string() << "\n";
-		stream.expires_after(std::chrono::seconds(5));
+		const std::string stream_ip = stream.socket().remote_endpoint().address().to_string();
+		std::cout << "New connection accepted from: " << stream_ip << "\n";
 
 		for (;;)
 		{
@@ -87,36 +87,53 @@ public:
 				Request req;
 				boost::beast::flat_buffer buffer;
 
-				co_await boost::beast::http::async_read(stream, buffer, req, boost::asio::use_awaitable);
+				// set expiration timer
+				stream.expires_after(std::chrono::seconds(30));
+
+				auto [error_read, readed_bytes] = co_await boost::beast::http::async_read(stream, buffer, req, boost::asio::as_tuple(boost::asio::use_awaitable));
+				// handle socket timeout or connection lost ?
+				if (error_read && error_read.value() == (int)boost::beast::http::error::end_of_stream)
+				{
+					std::cout << "Connection lost to: " << stream_ip << "\n";
+					co_return;
+				}
+
+				// timeout test on write
+				std::this_thread::sleep_for(std::chrono::seconds(5));
 
 				// this code is temporary till i manage collection of request by api object (POST /v1/create_resources) etc
 				for (auto& api : _apis)
 				{
 					// need to give api() a res to fill and return a boolean if the request has been processed or not in order to give it to the next api or to return a default 404
 					boost::beast::http::message_generator msg = co_await api(req);
-					co_await boost::beast::async_write(stream, std::move(msg), boost::asio::use_awaitable);
+					auto [error_write, sent_bytes] =  co_await boost::beast::async_write(stream, std::move(msg), boost::asio::as_tuple(boost::asio::use_awaitable));
+					if (error_write && error_write.value() == boost::asio::error::connection_aborted)
+					{
+						std::cout << "Connection lost to: " << stream_ip << "\n";
+						co_return;
+					}
 				}
 
 				if (!req.keep_alive())
 				{
 					break;
 				}
-
-				// reset expiration timer
-				stream.expires_after(std::chrono::seconds(5));
 			}
 			catch (boost::system::system_error& se)
 			{
 				if (se.code() != boost::beast::http::error::end_of_stream)
 				{
-					std::cerr << "HttpServer: OnAccept => Error" << se.what();
-					throw;
+					if (se.code() != boost::beast::errc::connection_aborted && se.code() != boost::beast::errc::connection_reset && se.code() != boost::beast::errc::operation_canceled)
+					{
+						std::cerr << "Error in OnAccept: " << se.code() << " " << se.what() << "\n";
+						throw;
+					}
 				}
 			}
 		}
 
-		std::cout << "Connection closed: " << stream.socket().remote_endpoint().address().to_string() << "\n";
-		boost::beast::error_code ec;
+		std::cout << "Connection closed: " << stream_ip << "\n";
+		boost::system::error_code ec;
 		stream.socket().shutdown(boost::asio::ip::tcp::socket::shutdown_send, ec);
 	}
 
