@@ -98,9 +98,6 @@ public:
 					co_return;
 				}
 
-				// timeout test on write
-				std::this_thread::sleep_for(std::chrono::seconds(5));
-
 				// this code is temporary till i manage collection of request by api object (POST /v1/create_resources) etc
 				for (auto& api : _apis)
 				{
